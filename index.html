@@ -203,6 +203,35 @@
     padding:8px 10px;
   }
 
+  .card-head-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:14px;
+    flex-wrap:wrap;
+  }
+  .card-head-row h2{margin:0;}
+  .unit-toggle-btns{
+    display:flex;
+    border:1px solid var(--line);
+    border-radius:999px;
+    overflow:hidden;
+    flex-shrink:0;
+  }
+  .unit-btn{
+    border:none;
+    background:#fff;
+    color:var(--navy);
+    font-size:12.5px;
+    font-weight:600;
+    padding:6px 0;
+    width:56px;
+    text-align:center;
+    cursor:pointer;
+  }
+  .unit-btn.active{background:var(--navy);color:#fff;}
+
   footer{
     text-align:center;
     margin-top:14px;
@@ -225,16 +254,22 @@
 
   <!-- 미래가치 계산기 -->
   <div class="card active" id="fv">
-    <h2>미래가치(FV) 계산기</h2>
+    <div class="card-head-row">
+      <h2>미래가치(FV) 계산기</h2>
+      <div class="unit-toggle-btns">
+        <button class="unit-btn unit-btn-won active" type="button">원</button>
+        <button class="unit-btn unit-btn-million" type="button">백만원</button>
+      </div>
+    </div>
 
     <div class="grid">
       <div class="field">
         <label>현재 자산(원금)</label>
-        <div class="input-row"><input id="fv-principal" type="text" inputmode="numeric" placeholder="###,###,###" data-default="200000000"><span class="unit">원</span></div>
+        <div class="input-row"><input id="fv-principal" type="text" inputmode="numeric" placeholder="###,###,###" data-default="200000000"><span class="unit" id="fv-principal-unit">원</span></div>
       </div>
       <div class="field">
         <label>연간 추가 납입액</label>
-        <div class="input-row"><input id="fv-contrib" type="text" inputmode="numeric" placeholder="###,###,###" data-default="0"><span class="unit">원/년</span></div>
+        <div class="input-row"><input id="fv-contrib" type="text" inputmode="numeric" placeholder="###,###,###" data-default="0"><span class="unit" id="fv-contrib-unit">원/년</span></div>
       </div>
       <div class="field">
         <label>연 기대수익률</label>
@@ -259,12 +294,18 @@
 
   <!-- 은퇴생활비 계산기 -->
   <div class="card" id="retire">
-    <h2>은퇴생활비(인출) 계산기</h2>
+    <div class="card-head-row">
+      <h2>은퇴생활비(인출) 계산기</h2>
+      <div class="unit-toggle-btns">
+        <button class="unit-btn unit-btn-won active" type="button">원</button>
+        <button class="unit-btn unit-btn-million" type="button">백만원</button>
+      </div>
+    </div>
 
     <div class="grid">
       <div class="field">
         <label>은퇴 시점 자산</label>
-        <div class="input-row"><input id="rt-corpus" type="text" inputmode="numeric" placeholder="###,###,###" data-default="600000000"><span class="unit">원</span></div>
+        <div class="input-row"><input id="rt-corpus" type="text" inputmode="numeric" placeholder="###,###,###" data-default="600000000"><span class="unit" id="rt-corpus-unit">원</span></div>
       </div>
       <div class="field">
         <label>인출 기간</label>
@@ -309,15 +350,24 @@ function fmtWon(n){
   return (n<0?'-':'')+s;
 }
 
-// 금액 입력칸: ###,###,### 콤마 포맷
+// 금액 입력칸: ###,###,### 콤마 포맷 + 입력 단위(원/백만원) 토글
+let unitMode = 'won'; // 'won' | 'million'
+const amountFieldIds = ['fv-principal','fv-contrib','rt-corpus'];
+const unitSuffixMap = {
+  'fv-principal': { won: '원', million: '백만원' },
+  'fv-contrib':   { won: '원/년', million: '백만원/년' },
+  'rt-corpus':    { won: '원', million: '백만원' }
+};
+
+// 화면에 표시된 값을 실제 원(KRW) 단위로 환산해서 반환(계산용)
 function parseAmount(el){
-  return parseFloat((el.value||'').replace(/,/g,'')) || 0;
+  const n = parseFloat((el.value||'').replace(/,/g,'')) || 0;
+  return unitMode === 'million' ? n * 1000000 : n;
 }
 function formatAmountInput(el){
   const raw = (el.value||'').replace(/[^\d]/g,'');
   el.value = raw === '' ? '' : Number(raw).toLocaleString('ko-KR');
 }
-const amountFieldIds = ['fv-principal','fv-contrib','rt-corpus'];
 amountFieldIds.forEach(id=>{
   const el = document.getElementById(id);
   el.value = Number(el.dataset.default).toLocaleString('ko-KR');
@@ -326,6 +376,28 @@ amountFieldIds.forEach(id=>{
     el.dispatchEvent(new Event('recalc'));
   });
 });
+
+// 단위 토글 버튼: 실제 원(KRW) 값을 보존한 채 표시 단위만 전환
+function setUnitMode(newMode){
+  if(newMode === unitMode) return;
+  const trueValues = {};
+  amountFieldIds.forEach(id=>{
+    trueValues[id] = parseAmount(document.getElementById(id)); // 기존 단위 기준으로 실제 원 값 확보
+  });
+  unitMode = newMode;
+  amountFieldIds.forEach(id=>{
+    const el = document.getElementById(id);
+    const displayVal = unitMode === 'million' ? trueValues[id]/1000000 : trueValues[id];
+    el.value = Math.round(displayVal).toLocaleString('ko-KR');
+    document.getElementById(id+'-unit').textContent = unitSuffixMap[id][unitMode];
+  });
+  document.querySelectorAll('.unit-btn-won').forEach(b=>b.classList.toggle('active', unitMode==='won'));
+  document.querySelectorAll('.unit-btn-million').forEach(b=>b.classList.toggle('active', unitMode==='million'));
+  calcFV();
+  calcRT();
+}
+document.querySelectorAll('.unit-btn-won').forEach(b=>b.addEventListener('click', ()=>setUnitMode('won')));
+document.querySelectorAll('.unit-btn-million').forEach(b=>b.addEventListener('click', ()=>setUnitMode('million')));
 
 // 탭 전환
 document.querySelectorAll('.tab-btn').forEach(btn=>{
@@ -364,12 +436,13 @@ function calcFV(){
   copyBtn.classList.remove('copied');
 }
 
-// 복사 버튼: 다른 금액 입력칸에 바로 붙여넣을 수 있도록 순수 숫자(콤마 포함)만 복사
+// 복사 버튼: 다른 금액 입력칸에 바로 붙여넣을 수 있도록, 현재 단위 모드에 맞춰 순수 숫자만 복사
 document.getElementById('fv-copy').addEventListener('click', function(){
   const resultEl = document.getElementById('fv-result');
   const raw = resultEl.dataset.raw;
   if(!raw) return;
-  const text = Number(raw).toLocaleString('ko-KR');
+  const displayVal = unitMode === 'million' ? Number(raw)/1000000 : Number(raw);
+  const text = Math.round(displayVal).toLocaleString('ko-KR');
   const done = () => {
     this.textContent = '복사됨';
     this.classList.add('copied');
