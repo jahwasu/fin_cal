@@ -1,0 +1,16 @@
+{
+  "name": "알파-재무계산기",
+  "short_name": "알파계산기",
+  "description": "미래가치 계산 · 은퇴생활비(인출) 계산 — 법률재무상담센터 알파본부 상담 보조 도구",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f7f5ef",
+  "theme_color": "#0f2540",
+  "lang": "ko",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

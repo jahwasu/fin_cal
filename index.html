@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>법률재무상담센터 재무계산기</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f2540">
+<link rel="apple-touch-icon" href="icon-192-navy.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="알파계산기">
+<style>
+  :root{
+    --navy:#0f2540;
+    --navy-2:#16345c;
+    --gold:#c9a34e;
+    --gold-soft:#f4ead1;
+    --rust:#b5502f;
+    --paper:#f7f5ef;
+    --ink:#1c1c1a;
+    --sub:#6b6a64;
+    --line:#e2ded2;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+    color:var(--ink);
+    padding:32px 16px 64px;
+    overflow-x:hidden;
+  }
+  .wrap{max-width:920px;margin:0 auto;width:100%;}
+  header{
+    text-align:center;
+    margin-bottom:28px;
+  }
+  header .eyebrow{
+    letter-spacing:.14em;
+    font-size:11px;
+    color:var(--gold);
+    font-weight:700;
+    text-transform:uppercase;
+  }
+  header h1{
+    margin:6px 0 4px;
+    font-size:26px;
+    color:var(--navy);
+    letter-spacing:-0.01em;
+  }
+  header p{margin:0;color:var(--sub);font-size:13px;}
+
+  .tabs{
+    display:flex;
+    gap:8px;
+    justify-content:center;
+    margin-bottom:24px;
+  }
+  .tab-btn{
+    padding:10px 20px;
+    border-radius:999px;
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--navy);
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+    transition:all .15s ease;
+  }
+  .tab-btn.active{
+    background:var(--navy);
+    border-color:var(--navy);
+    color:#fff;
+  }
+
+  .card{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:28px;
+    display:none;
+    max-width:100%;
+    overflow:hidden;
+  }
+  .card.active{display:block;}
+  .card h2{
+    margin:0 0 4px;
+    font-size:17px;
+    color:var(--navy);
+  }
+  .card .desc{margin:0 0 22px;color:var(--sub);font-size:13px;line-height:1.6;}
+
+  .grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:16px 20px;
+    margin-bottom:20px;
+  }
+  @media (max-width:560px){.grid{grid-template-columns:1fr;}}
+
+  .field label{
+    display:block;
+    font-size:12px;
+    color:var(--sub);
+    margin-bottom:6px;
+    font-weight:600;
+  }
+  .field .input-row{
+    display:flex;
+    align-items:center;
+    border:1px solid var(--line);
+    border-radius:8px;
+    overflow:hidden;
+    background:var(--paper);
+  }
+  .field input{
+    flex:1;
+    min-width:0;
+    width:100%;
+    border:none;
+    background:transparent;
+    padding:11px 12px;
+    font-size:15px;
+    color:var(--ink);
+    outline:none;
+    font-family:inherit;
+  }
+  .field .unit{
+    padding:0 12px;
+    font-size:12px;
+    color:var(--sub);
+    white-space:nowrap;
+    border-left:1px solid var(--line);
+  }
+
+  .real-rate-box{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    flex-wrap:wrap;
+    background:var(--gold-soft);
+    border-radius:8px;
+    padding:12px 16px;
+    margin-bottom:16px;
+    max-width:100%;
+    overflow:hidden;
+  }
+  .real-rate-label{
+    font-size:12.5px;
+    color:var(--navy);
+    font-weight:600;
+  }
+  .real-rate-value{
+    font-size:18px;
+    font-weight:800;
+    color:var(--navy);
+  }
+
+  .result{
+    margin-top:6px;
+    border-top:1px dashed var(--line);
+    padding-top:20px;
+  }
+  .result .key-label{font-size:12px;color:var(--sub);margin-bottom:4px;}
+  .result .key-row{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;}
+  .result .key-value{
+    font-size:32px;
+    font-weight:800;
+    color:var(--gold);
+    letter-spacing:-0.01em;
+  }
+  .copy-btn{
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--navy);
+    font-size:12px;
+    font-weight:600;
+    padding:6px 14px;
+    border-radius:999px;
+    cursor:pointer;
+    transition:all .15s ease;
+  }
+  .copy-btn:hover{border-color:var(--gold);color:var(--navy);}
+  .copy-btn.copied{background:var(--navy);border-color:var(--navy);color:#fff;}
+
+  .reset-btn{
+    display:block;
+    margin:0 0 20px auto;
+    border:none;
+    background:none;
+    color:var(--rust);
+    font-size:12px;
+    font-weight:600;
+    cursor:pointer;
+    text-decoration:underline;
+    padding:2px 0;
+  }
+  .reset-btn:hover{opacity:.75;}
+  .result .sub-line{margin-top:8px;font-size:13px;color:var(--navy-2);line-height:1.7;}
+  .result .assump{
+    margin-top:12px;
+    font-size:11.5px;
+    color:var(--sub);
+    background:var(--paper);
+    border-radius:8px;
+    padding:10px 12px;
+  }
+
+  footer{
+    text-align:center;
+    margin-top:28px;
+    font-size:11px;
+    color:var(--sub);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">법률재무상담센터</div>
+    <h1>재무계산기</h1>
+    <p>미래가치 계산 · 은퇴생활비(인출) 계산 — 간단 버전</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="fv">미래가치 계산기</button>
+    <button class="tab-btn" data-tab="retire">은퇴생활비 계산기</button>
+  </div>
+
+  <!-- 미래가치 계산기 -->
+  <div class="card active" id="fv">
+    <h2>미래가치(FV) 계산기</h2>
+    <p class="desc">현재 자산이 일정 수익률로 몇 년 후 얼마가 되는지 계산합니다.<br>매년 추가 납입을 더할 수 있습니다.</p>
+
+    <div class="grid">
+      <div class="field">
+        <label>현재 자산(원금)</label>
+        <div class="input-row"><input id="fv-principal" type="text" inputmode="numeric" placeholder="###,###,###" data-default="200000000"><span class="unit">원</span></div>
+      </div>
+      <div class="field">
+        <label>연간 추가 납입액</label>
+        <div class="input-row"><input id="fv-contrib" type="text" inputmode="numeric" placeholder="###,###,###" data-default="0"><span class="unit">원/년</span></div>
+      </div>
+      <div class="field">
+        <label>연 기대수익률</label>
+        <div class="input-row"><input id="fv-rate" type="number" value="7" step="0.1"><span class="unit">%</span></div>
+      </div>
+      <div class="field">
+        <label>투자 기간</label>
+        <div class="input-row"><input id="fv-years" type="number" value="10" step="1"><span class="unit">년</span></div>
+      </div>
+    </div>
+    <button class="reset-btn" id="fv-reset" type="button">초기화</button>
+
+    <div class="result">
+      <div class="key-label">예상 미래가치</div>
+      <div class="key-row">
+        <div class="key-value" id="fv-result">-</div>
+        <button class="copy-btn" id="fv-copy" type="button">복사</button>
+      </div>
+      <div class="sub-line" id="fv-sub"></div>
+    </div>
+  </div>
+
+  <!-- 은퇴생활비 계산기 -->
+  <div class="card" id="retire">
+    <h2>은퇴생활비(인출) 계산기</h2>
+    <p class="desc">은퇴 시점 자산을 정해진 기간 동안 매월 얼마씩 나누어 받을 수 있는지 계산합니다(원금 소진형, PMT).</p>
+
+    <div class="grid">
+      <div class="field">
+        <label>은퇴 시점 자산</label>
+        <div class="input-row"><input id="rt-corpus" type="text" inputmode="numeric" placeholder="###,###,###" data-default="600000000"><span class="unit">원</span></div>
+      </div>
+      <div class="field">
+        <label>인출 기간</label>
+        <div class="input-row"><input id="rt-years" type="number" value="25" step="1"><span class="unit">년</span></div>
+      </div>
+      <div class="field">
+        <label>명목 기대수익률</label>
+        <div class="input-row"><input id="rt-nominal" type="number" value="5" step="0.1"><span class="unit">%</span></div>
+      </div>
+      <div class="field">
+        <label>물가상승률</label>
+        <div class="input-row"><input id="rt-infl" type="number" value="2.5" step="0.1"><span class="unit">%</span></div>
+      </div>
+    </div>
+
+    <div class="real-rate-box">
+      <span class="real-rate-label">적용수익률(실질, Fisher 자동계산)</span>
+      <span class="real-rate-value" id="rt-real-rate">-</span>
+    </div>
+
+    <button class="reset-btn" id="rt-reset" type="button">초기화</button>
+
+    <div class="result">
+      <div class="key-label">월 인출 가능 금액</div>
+      <div class="key-value" id="rt-result">-</div>
+      <div class="sub-line" id="rt-sub"></div>
+      <div class="assump" id="rt-assump"></div>
+    </div>
+  </div>
+
+  <footer>내부 상담 보조용 간이 계산기입니다 · 세제·규정은 반영되지 않았으므로 실제 설계는 정식 리포트 산출 절차를 따르십시오.</footer>
+</div>
+
+<script>
+function fmtWon(n){
+  if(!isFinite(n)) return '-';
+  const eok = Math.floor(Math.abs(n)/100000000);
+  const man = Math.round((Math.abs(n)%100000000)/10000);
+  let s = '';
+  if(eok>0) s += eok+'억 ';
+  s += man.toLocaleString('ko-KR')+'만원';
+  return (n<0?'-':'')+s;
+}
+
+// 금액 입력칸: ###,###,### 콤마 포맷
+function parseAmount(el){
+  return parseFloat((el.value||'').replace(/,/g,'')) || 0;
+}
+function formatAmountInput(el){
+  const raw = (el.value||'').replace(/[^\d]/g,'');
+  el.value = raw === '' ? '' : Number(raw).toLocaleString('ko-KR');
+}
+const amountFieldIds = ['fv-principal','fv-contrib','rt-corpus'];
+amountFieldIds.forEach(id=>{
+  const el = document.getElementById(id);
+  el.value = Number(el.dataset.default).toLocaleString('ko-KR');
+  el.addEventListener('input', ()=>{
+    formatAmountInput(el);
+    el.dispatchEvent(new Event('recalc'));
+  });
+});
+
+// 탭 전환
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.card').forEach(c=>c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).classList.add('active');
+  });
+});
+
+// 미래가치 계산 (월복리)
+function calcFV(){
+  const p = parseAmount(document.getElementById('fv-principal'));
+  const c = parseAmount(document.getElementById('fv-contrib'));
+  const rAnnual = (parseFloat(document.getElementById('fv-rate').value)||0)/100;
+  const years = parseFloat(document.getElementById('fv-years').value)||0;
+
+  const i = rAnnual/12;           // 월 이율
+  const nMonths = years*12;       // 총 개월수
+  const cMonthly = c/12;          // 연간 추가납입액 → 월 환산(매월 균등 납입 가정)
+
+  const fvPrincipal = p * Math.pow(1+i, nMonths);
+  const fvContrib = i===0 ? cMonthly*nMonths : cMonthly*((Math.pow(1+i,nMonths)-1)/i);
+  const total = fvPrincipal + fvContrib;
+
+  document.getElementById('fv-result').textContent = fmtWon(total);
+  document.getElementById('fv-result').dataset.raw = Math.round(total);
+  document.getElementById('fv-sub').textContent =
+    `원금 ${fmtWon(p)}이(가) 연 ${(rAnnual*100).toFixed(1)}%(월복리, 월 ${(i*100).toFixed(3)}%)로 ${years}년 성장 시 ${fmtWon(fvPrincipal)}`
+    + (c>0 ? ` + 연납입 ${fmtWon(c)}(월 ${fmtWon(cMonthly)} 균등 납입 가정) 성장분 ${fmtWon(fvContrib)}` : '')
+    + ` = ${fmtWon(total)} (가정: 월복리, 매월 말 납입)`;
+  // 복사 버튼 재계산 시 상태 초기화
+  const copyBtn = document.getElementById('fv-copy');
+  copyBtn.textContent = '복사';
+  copyBtn.classList.remove('copied');
+}
+
+// 복사 버튼: 다른 금액 입력칸에 바로 붙여넣을 수 있도록 순수 숫자(콤마 포함)만 복사
+document.getElementById('fv-copy').addEventListener('click', function(){
+  const resultEl = document.getElementById('fv-result');
+  const raw = resultEl.dataset.raw;
+  if(!raw) return;
+  const text = Number(raw).toLocaleString('ko-KR');
+  const done = () => {
+    this.textContent = '복사됨';
+    this.classList.add('copied');
+    setTimeout(()=>{ this.textContent='복사'; this.classList.remove('copied'); }, 1500);
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(()=>fallbackCopy(text, done));
+  } else {
+    fallbackCopy(text, done);
+  }
+});
+
+function fallbackCopy(text, done){
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try{ document.execCommand('copy'); done(); }catch(e){}
+  document.body.removeChild(ta);
+}
+
+// 은퇴생활비 계산 (월간 PMT, 월이율 기준 · 항상 Fisher 실질수익률 적용)
+function calcRT(){
+  const corpus = parseAmount(document.getElementById('rt-corpus'));
+  const years = parseFloat(document.getElementById('rt-years').value)||0;
+  const nominal = (parseFloat(document.getElementById('rt-nominal').value)||0)/100;
+  const infl = (parseFloat(document.getElementById('rt-infl').value)||0)/100;
+
+  const rAnnual = (1+nominal)/(1+infl) - 1;   // Fisher 실질수익률
+  document.getElementById('rt-real-rate').textContent = (rAnnual*100).toFixed(2) + '%';
+
+  const i = rAnnual/12;        // 월 이율
+  const nMonths = years*12;    // 총 인출 개월수
+  const monthlyPMT = i===0 ? corpus/nMonths : corpus*i/(1-Math.pow(1+i,-nMonths));
+
+  document.getElementById('rt-result').textContent = fmtWon(monthlyPMT) + ' / 월';
+  document.getElementById('rt-sub').textContent =
+    `자산 ${fmtWon(corpus)}을(를) ${years}년간 매월 균등 인출 시 (원금 소진형)`;
+  document.getElementById('rt-assump').textContent =
+    `(가정) Fisher 실질수익률 = (1+명목${(nominal*100).toFixed(1)}%)÷(1+물가${(infl*100).toFixed(1)}%)−1 = ${(rAnnual*100).toFixed(2)}% · 월 이율 환산 후 월간 PMT 계산 · 세제·건보료는 미반영(별도 확인 필요)`;
+}
+
+['fv-principal','fv-contrib'].forEach(id=>{
+  document.getElementById(id).addEventListener('recalc', calcFV);
+});
+['fv-rate','fv-years'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', calcFV);
+});
+['rt-corpus'].forEach(id=>{
+  document.getElementById(id).addEventListener('recalc', calcRT);
+});
+['rt-years','rt-nominal','rt-infl'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', calcRT);
+});
+
+// 초기화: 기대수익률·물가상승률(디폴트값)만 유지, 나머지 입력은 0 / 결과는 공백
+// - 버튼 클릭 시 뿐 아니라, 웹앱을 열거나 새로고침할 때도 항상 이 상태로 시작한다.
+function resetFV(){
+  document.getElementById('fv-principal').value = '0';
+  document.getElementById('fv-contrib').value = '0';
+  document.getElementById('fv-rate').value = 7;   // 디폴트(기대수익률) 유지
+  document.getElementById('fv-years').value = 0;
+
+  document.getElementById('fv-result').textContent = '';
+  document.getElementById('fv-result').removeAttribute('data-raw');
+  document.getElementById('fv-sub').textContent = '';
+  const copyBtn = document.getElementById('fv-copy');
+  copyBtn.textContent = '복사';
+  copyBtn.classList.remove('copied');
+}
+function resetRT(){
+  document.getElementById('rt-corpus').value = '0';
+  document.getElementById('rt-years').value = 0;
+  document.getElementById('rt-nominal').value = 5;   // 디폴트(기대수익률) 유지
+  document.getElementById('rt-infl').value = 2.5;    // 디폴트(물가상승률) 유지
+
+  document.getElementById('rt-real-rate').textContent = '';
+  document.getElementById('rt-result').textContent = '';
+  document.getElementById('rt-sub').textContent = '';
+  document.getElementById('rt-assump').textContent = '';
+}
+document.getElementById('fv-reset').addEventListener('click', resetFV);
+document.getElementById('rt-reset').addEventListener('click', resetRT);
+
+// 웹앱을 열 때 / 새로고침할 때 항상 초기화 상태로 시작 (저장소 미사용 — 이전 세션 값이 남지 않음)
+resetFV();
+resetRT();
+
+// PWA: 서비스워커 등록(오프라인 지원). file://로 열면 등록되지 않으며, 실제 웹서버(https)에 올렸을 때 동작합니다.
+if('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
