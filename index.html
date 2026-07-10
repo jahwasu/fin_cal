@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>법률재무상담센터 재무계산기</title>
+<title>재무계산기 by jahwasu</title>
 
 <!-- PWA -->
 <link rel="manifest" href="manifest.json">
@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="icon-192-navy.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="알파계산기">
+<meta name="apple-mobile-web-app-title" content="재무계산기">
 <style>
   :root{
     --navy:#0f2540;
@@ -46,6 +46,17 @@
     letter-spacing:-0.01em;
   }
   header p{margin:0;color:var(--sub);font-size:12.5px;}
+
+  /* 제작자 크레딧 (푸터 · 심플 텍스트 링크) */
+  .maker-credit{
+    color:var(--sub);
+    font-size:11px;
+    font-weight:400;
+    text-decoration:none;
+    letter-spacing:-0.01em;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .maker-credit:hover{text-decoration:underline;}
 
   .tabs{
     display:flex;
@@ -243,7 +254,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>법률재무상담센터 재무계산기</h1>
+    <h1>재무계산기</h1>
     <p>미래가치 계산 · 은퇴생활비(인출) 계산</p>
   </header>
 
@@ -316,8 +327,8 @@
         <div class="input-row"><input id="rt-nominal" type="number" value="5" step="0.1"><span class="unit">%</span></div>
       </div>
       <div class="field">
-        <label>물가상승률</label>
-        <div class="input-row"><input id="rt-infl" type="number" value="2.5" step="0.1"><span class="unit">%</span></div>
+        <label>물가상승률 <span style="font-size:11px;color:var(--sub);">(고정값)</span></label>
+        <div class="input-row"><input id="rt-infl" type="number" value="2.5" step="0.1" readonly disabled style="background:var(--gold-soft);color:var(--sub);cursor:not-allowed;"><span class="unit">%</span></div>
       </div>
     </div>
 
@@ -336,10 +347,14 @@
     </div>
   </div>
 
-  <footer>내부 상담 보조용 간이 계산기입니다 · 세제·규정은 반영되지 않았으므로 실제 설계는 정식 리포트 산출 절차를 따르십시오.</footer>
+  <footer><a class="maker-credit" href="sms:01037329326?body=재무계산기 문의드립니다." aria-label="제작자에게 문자 문의">문의 @jahwasu</a></footer>
 </div>
 
 <script>
+/* [통일 기준] 물가상승률은 본부 표준 가정으로 고정 (사용자 임의 변경 불가).
+   변경이 필요하면 이 상수 1곳만 수정 → 3층연금계산기의 INFLATION_RATE와 동일값 유지. */
+const INFLATION_RATE = 0.025;   // 2.5%
+
 function fmtWon(n){
   if(!isFinite(n)) return '-';
   const eok = Math.floor(Math.abs(n)/100000000);
@@ -471,7 +486,7 @@ function calcRT(){
   const corpus = parseAmount(document.getElementById('rt-corpus'));
   const years = parseFloat(document.getElementById('rt-years').value)||0;
   const nominal = (parseFloat(document.getElementById('rt-nominal').value)||0)/100;
-  const infl = (parseFloat(document.getElementById('rt-infl').value)||0)/100;
+  const infl = INFLATION_RATE;   // [고정] 본부 표준 물가상승률 상수 참조
 
   const rAnnual = (1+nominal)/(1+infl) - 1;   // Fisher 실질수익률
   document.getElementById('rt-real-rate').textContent = (rAnnual*100).toFixed(2) + '%';
@@ -496,7 +511,7 @@ function calcRT(){
 ['rt-corpus'].forEach(id=>{
   document.getElementById(id).addEventListener('recalc', calcRT);
 });
-['rt-years','rt-nominal','rt-infl'].forEach(id=>{
+['rt-years','rt-nominal'].forEach(id=>{   // rt-infl 제거: 물가상승률은 고정 상수
   document.getElementById(id).addEventListener('input', calcRT);
 });
 
@@ -519,7 +534,7 @@ function resetRT(){
   document.getElementById('rt-corpus').value = '0';
   document.getElementById('rt-years').value = 0;
   document.getElementById('rt-nominal').value = 5;   // 디폴트(기대수익률) 유지
-  document.getElementById('rt-infl').value = 2.5;    // 디폴트(물가상승률) 유지
+  document.getElementById('rt-infl').value = (INFLATION_RATE*100).toFixed(1);  // 고정 상수 표시(2.5)
 
   document.getElementById('rt-real-rate').textContent = '';
   document.getElementById('rt-result').textContent = '';
