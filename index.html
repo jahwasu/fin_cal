@@ -330,6 +330,10 @@
         <label>물가상승률 <span style="font-size:11px;color:var(--sub);">(고정값)</span></label>
         <div class="input-row"><input id="rt-infl" type="number" value="2.5" step="0.1" readonly disabled style="background:var(--gold-soft);color:var(--sub);cursor:not-allowed;"><span class="unit">%</span></div>
       </div>
+      <div class="field">
+        <label>은퇴까지 남은 기간 <span style="font-size:11px;color:var(--sub);">(0 = 이미 은퇴 · 미래가치 복사 시 자동 입력)</span></label>
+        <div class="input-row"><input id="rt-toretire" type="number" value="0" step="1" min="0"><span class="unit">년</span></div>
+      </div>
     </div>
 
     <div class="real-rate-box">
@@ -340,8 +344,9 @@
     <button class="reset-btn" id="rt-reset" type="button">초기화</button>
 
     <div class="result">
-      <div class="key-label">월 인출 가능 금액</div>
+      <div class="key-label" id="rt-result-label">월 인출 가능 금액</div>
       <div class="key-value" id="rt-result">-</div>
+      <div style="font-size:12.5px;color:var(--sub);margin-top:2px;" id="rt-nominal-line"></div>
       <div class="sub-line" id="rt-sub"></div>
       <div class="assump" id="rt-assump"></div>
     </div>
@@ -354,6 +359,20 @@
 /* [통일 기준] 물가상승률은 본부 표준 가정으로 고정 (사용자 임의 변경 불가).
    변경이 필요하면 이 상수 1곳만 수정 → 3층연금계산기의 INFLATION_RATE와 동일값 유지. */
 const INFLATION_RATE = 0.025;   // 2.5%
+
+/* ============================================================
+   [본부 표준 · 화폐 기준시점 원칙] — 3층연금 시뮬레이터 v3.1.0과 동일
+   ============================================================
+   ① 미래가치(적립) 계산: "명목수익률"로 성장
+      → 결과는 '은퇴시점 명목 금액' (그 시점 통장에 찍힐 숫자)
+   ② 인출(은퇴생활비) 계산: "Fisher 실질수익률"로 PMT 산출
+      → 결과는 '은퇴시점 화폐가치' 기준의 월액
+        (매년 물가만큼 인상 인출해도 기간 내 소진되는 구조)
+   ③ 고객 안내·목표생활비 비교: 반드시 "오늘 가치"로 환산
+      → 오늘 가치 = 은퇴시점 가치 ÷ (1+물가상승률)^(은퇴까지 남은 연수)
+      ※ ②의 결과를 오늘 가치로 오인하면 노후 준비 수준을
+        과대평가하게 됨 (10년 기준 약 28% 착시) — 반드시 ③ 적용
+   ============================================================ */
 
 function fmtWon(n){
   if(!isFinite(n)) return '-';
@@ -441,10 +460,12 @@ function calcFV(){
 
   document.getElementById('fv-result').textContent = fmtWon(total);
   document.getElementById('fv-result').dataset.raw = Math.round(total);
+  const fvToday = total / Math.pow(1+INFLATION_RATE, years);  // [원칙 ③] 명목 결과의 오늘 구매력
   document.getElementById('fv-sub').textContent =
     `원금 ${fmtWon(p)}이(가) 연 ${(rAnnual*100).toFixed(1)}%(월복리, 월 ${(i*100).toFixed(3)}%)로 ${years}년 성장 시 ${fmtWon(fvPrincipal)}`
     + (c>0 ? ` + 연납입 ${fmtWon(c)}(월 ${fmtWon(cMonthly)} 균등 납입 가정) 성장분 ${fmtWon(fvContrib)}` : '')
-    + ` = ${fmtWon(total)} (가정: 월복리, 매월 말 납입)`;
+    + ` = ${fmtWon(total)} (가정: 월복리, 매월 말 납입)`
+    + (years>0 ? ` ※ 이 금액은 ${years}년 후 명목 금액이며, 오늘 가치(구매력)로는 약 ${fmtWon(fvToday)} (물가 ${(INFLATION_RATE*100).toFixed(1)}% 반영)` : '');
   // 복사 버튼 재계산 시 상태 초기화
   const copyBtn = document.getElementById('fv-copy');
   copyBtn.textContent = '복사';
@@ -452,10 +473,16 @@ function calcFV(){
 }
 
 // 복사 버튼: 다른 금액 입력칸에 바로 붙여넣을 수 있도록, 현재 단위 모드에 맞춰 순수 숫자만 복사
+// + [워크플로우 연동] 복사 시 FV의 '투자 기간'을 인출 탭 '은퇴까지 남은 기간'에 자동 입력
+//   → 미래가치 → 은퇴생활비로 이어지는 동선에서 오늘 가치 환산 단계가 누락되지 않도록 함
 document.getElementById('fv-copy').addEventListener('click', function(){
   const resultEl = document.getElementById('fv-result');
   const raw = resultEl.dataset.raw;
   if(!raw) return;
+  // FV 투자 기간을 은퇴까지 남은 기간으로 전달 후 인출 탭 재계산
+  const fvYears = parseFloat(document.getElementById('fv-years').value)||0;
+  document.getElementById('rt-toretire').value = fvYears;
+  calcRT();
   const displayVal = unitMode === 'million' ? Number(raw)/1000000 : Number(raw);
   const text = Math.round(displayVal).toLocaleString('ko-KR');
   const done = () => {
@@ -482,24 +509,44 @@ function fallbackCopy(text, done){
 }
 
 // 은퇴생활비 계산 (월간 PMT, 월이율 기준 · 항상 Fisher 실질수익률 적용)
+// [기준시점 원칙 ②③] PMT는 '은퇴시점 화폐가치' → 오늘 가치로 환산(÷(1+물가)^남은연수)하여 메인 표시
 function calcRT(){
   const corpus = parseAmount(document.getElementById('rt-corpus'));
   const years = parseFloat(document.getElementById('rt-years').value)||0;
   const nominal = (parseFloat(document.getElementById('rt-nominal').value)||0)/100;
   const infl = INFLATION_RATE;   // [고정] 본부 표준 물가상승률 상수 참조
+  const toRetire = Math.max(0, parseFloat(document.getElementById('rt-toretire').value)||0);  // 은퇴까지 남은 연수
 
   const rAnnual = (1+nominal)/(1+infl) - 1;   // Fisher 실질수익률
   document.getElementById('rt-real-rate').textContent = (rAnnual*100).toFixed(2) + '%';
 
   const i = rAnnual/12;        // 월 이율
   const nMonths = years*12;    // 총 인출 개월수
-  const monthlyPMT = i===0 ? corpus/nMonths : corpus*i/(1-Math.pow(1+i,-nMonths));
+  const monthlyPMT = i===0 ? corpus/nMonths : corpus*i/(1-Math.pow(1+i,-nMonths));  // 은퇴시점 가치 월액
 
-  document.getElementById('rt-result').textContent = fmtWon(monthlyPMT) + ' / 월';
+  // [원칙 ③] 오늘 가치 환산: 물가상승률로만 할인 (수익률 아님)
+  const deflator = Math.pow(1+infl, toRetire);
+  const pmtToday = monthlyPMT / deflator;
+
+  if(toRetire > 0){
+    // 은퇴 전: 메인 = 오늘 가치, 작은 글씨 = 은퇴시점 명목 병기
+    document.getElementById('rt-result-label').textContent = '월 인출 가능 금액 (오늘 가치 기준)';
+    document.getElementById('rt-result').textContent = fmtWon(pmtToday) + ' / 월';
+    document.getElementById('rt-nominal-line').textContent =
+      `은퇴시점(${toRetire}년 후) 명목 ${fmtWon(monthlyPMT)} / 월 — 물가 ${(infl*100).toFixed(1)}% 기준 구매력은 동일`;
+  }else{
+    // 이미 은퇴(남은 기간 0): 오늘 = 은퇴시점이므로 단일 표시
+    document.getElementById('rt-result-label').textContent = '월 인출 가능 금액';
+    document.getElementById('rt-result').textContent = fmtWon(monthlyPMT) + ' / 월';
+    document.getElementById('rt-nominal-line').textContent = '';
+  }
+
   document.getElementById('rt-sub').textContent =
     `자산 ${fmtWon(corpus)}을(를) ${years}년간 매월 균등 인출 시 (원금 소진형)`;
   document.getElementById('rt-assump').textContent =
-    `(가정) Fisher 실질수익률 = (1+명목${(nominal*100).toFixed(1)}%)÷(1+물가${(infl*100).toFixed(1)}%)−1 = ${(rAnnual*100).toFixed(2)}% · 월 이율 환산 후 월간 PMT 계산 · 세제·건보료는 미반영(별도 확인 필요)`;
+    `(가정) Fisher 실질수익률 = (1+명목${(nominal*100).toFixed(1)}%)÷(1+물가${(infl*100).toFixed(1)}%)−1 = ${(rAnnual*100).toFixed(2)}% · 월 이율 환산 후 월간 PMT 계산`
+    + (toRetire>0 ? ` · 오늘 가치 = 은퇴시점 월액 ÷ (1+물가${(infl*100).toFixed(1)}%)^${toRetire}년 = ÷${deflator.toFixed(3)}` : '')
+    + ` · 세제·건보료는 미반영(별도 확인 필요)`;
 }
 
 ['fv-principal','fv-contrib'].forEach(id=>{
@@ -511,7 +558,7 @@ function calcRT(){
 ['rt-corpus'].forEach(id=>{
   document.getElementById(id).addEventListener('recalc', calcRT);
 });
-['rt-years','rt-nominal'].forEach(id=>{   // rt-infl 제거: 물가상승률은 고정 상수
+['rt-years','rt-nominal','rt-toretire'].forEach(id=>{   // rt-infl 제거: 물가상승률은 고정 상수
   document.getElementById(id).addEventListener('input', calcRT);
 });
 
@@ -535,9 +582,12 @@ function resetRT(){
   document.getElementById('rt-years').value = 0;
   document.getElementById('rt-nominal').value = 5;   // 디폴트(기대수익률) 유지
   document.getElementById('rt-infl').value = (INFLATION_RATE*100).toFixed(1);  // 고정 상수 표시(2.5)
+  document.getElementById('rt-toretire').value = 0;  // 은퇴까지 남은 기간 초기화
 
   document.getElementById('rt-real-rate').textContent = '';
+  document.getElementById('rt-result-label').textContent = '월 인출 가능 금액';
   document.getElementById('rt-result').textContent = '';
+  document.getElementById('rt-nominal-line').textContent = '';
   document.getElementById('rt-sub').textContent = '';
   document.getElementById('rt-assump').textContent = '';
 }
